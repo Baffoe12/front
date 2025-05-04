@@ -41,7 +41,7 @@ export default function DashboardLayout() {
         centered
         textColor="primary"
         indicatorColor="primary"
-        sx={{ mb: 3, maxWidth: 900, mx: 'auto' }}
+        sx={{ mb: 3, maxWidth: 900, mx: 'auto', p: 1, bgcolor: 'background.paper', boxShadow: 3, borderRadius: 1 }}
       >
         <Tab icon={<Home />} label="Home" />
         <Tab icon={<Map />} label="Map" />
