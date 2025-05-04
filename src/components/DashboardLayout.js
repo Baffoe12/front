@@ -44,11 +44,11 @@ export default function DashboardLayout() {
         indicatorColor="primary"
         sx={{ maxWidth: 900, mx: 'auto', p: 1, bgcolor: 'background.paper', boxShadow: 3, borderRadius: 1 }}
       >
-        <Tab icon={<Home />} label="Home" sx={{ minWidth: 100, px: 2 }} />
-        <Tab icon={<Map />} label="Map" sx={{ minWidth: 100, px: 2 }} />
-        <Tab icon={<BarChart />} label="Stats" sx={{ minWidth: 100, px: 2 }} />
-        <Tab icon={<History />} label="Sensor History" sx={{ minWidth: 100, px: 2 }} />
-        <Tab icon={<Warning />} label="Accident Log" sx={{ minWidth: 100, px: 2 }} />
+        <Tab icon={<Home />} label="Home" sx={{ minWidth: 100, px: 2, mr: 2 }} />
+        <Tab icon={<Map />} label="Map" sx={{ minWidth: 100, px: 2, mr: 2 }} />
+        <Tab icon={<BarChart />} label="Stats" sx={{ minWidth: 100, px: 2, mr: 2 }} />
+        <Tab icon={<History />} label="Sensor History" sx={{ minWidth: 100, px: 2, mr: 2 }} />
+        <Tab icon={<Warning />} label="Accident Log" sx={{ minWidth: 100, px: 2, mr: 2 }} />
         <Tab icon={<Download />} label="Download" sx={{ minWidth: 100, px: 2 }} />
       </Tabs>
       <Outlet />
