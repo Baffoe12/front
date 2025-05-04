@@ -1,5 +1,6 @@
 import React from 'react';
 import { Tabs, Tab, Box } from '@mui/material';
+import { Home, Map, BarChart, History, Download, Warning } from '@mui/icons-material';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 export default function DashboardLayout() {
@@ -42,12 +43,12 @@ export default function DashboardLayout() {
         indicatorColor="primary"
         sx={{ mb: 3, maxWidth: 900, mx: 'auto' }}
       >
-        <Tab label="Home" />
-        <Tab label="Map" />
-        <Tab label="Stats" />
-        <Tab label="Sensor History" />
-        <Tab label="Accident Log" />
-        <Tab label="Download" />
+        <Tab icon={<Home />} label="Home" />
+        <Tab icon={<Map />} label="Map" />
+        <Tab icon={<BarChart />} label="Stats" />
+        <Tab icon={<History />} label="Sensor History" />
+        <Tab icon={<Warning />} label="Accident Log" />
+        <Tab icon={<Download />} label="Download" />
       </Tabs>
       <Outlet />
     </Box>
