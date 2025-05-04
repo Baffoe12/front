@@ -34,8 +34,8 @@ export default function DashboardLayout() {
   };
 
   return (
-    <Box sx={{ width: '100%', borderBottom: 1, borderColor: 'divider', height: 64, display: 'flex', alignItems: 'center', bgcolor: 'background.default' }}>
-      <Box component="img" src="/car-on-road.svg" alt="Logo" sx={{ height: 40, width: 40, ml: 2, mr: 3 }} />
+    <Box sx={{ width: '100%', borderBottom: 1, borderColor: 'divider', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'background.default', px: 2 }}>
+      <Box component="img" src="/car-on-road.svg" alt="Logo" sx={{ height: 40, width: 40 }} />
       <Tabs
         value={currentTab}
         onChange={handleChange}
@@ -43,7 +43,7 @@ export default function DashboardLayout() {
         scrollButtons="auto"
         textColor="primary"
         indicatorColor="primary"
-        sx={{ maxWidth: 850, mx: 'auto', p: 1, bgcolor: 'background.paper', boxShadow: 3, borderRadius: 1, transition: 'all 0.3s ease' }}
+        sx={{ flexGrow: 1, justifyContent: 'center', p: 1, bgcolor: 'background.paper', boxShadow: 3, borderRadius: 1, transition: 'all 0.3s ease', ml: 3 }}
         TabIndicatorProps={{ style: { transition: 'all 0.3s ease' } }}
       >
         <Tab icon={<Home />} label="Home" sx={{ minWidth: 100, px: 2, mr: 2, transition: 'color 0.3s ease' }} />
