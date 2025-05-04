@@ -34,21 +34,22 @@ export default function DashboardLayout() {
   };
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ width: '100%', borderBottom: 1, borderColor: 'divider', height: 64, display: 'flex', alignItems: 'center', bgcolor: 'background.default' }}>
       <Tabs
         value={currentTab}
         onChange={handleChange}
-        centered
+        variant="scrollable"
+        scrollButtons="auto"
         textColor="primary"
         indicatorColor="primary"
-        sx={{ mb: 3, maxWidth: 900, mx: 'auto', p: 1, bgcolor: 'background.paper', boxShadow: 3, borderRadius: 1 }}
+        sx={{ maxWidth: 900, mx: 'auto', p: 1, bgcolor: 'background.paper', boxShadow: 3, borderRadius: 1 }}
       >
-        <Tab icon={<Home />} label="Home" />
-        <Tab icon={<Map />} label="Map" />
-        <Tab icon={<BarChart />} label="Stats" />
-        <Tab icon={<History />} label="Sensor History" />
-        <Tab icon={<Warning />} label="Accident Log" />
-        <Tab icon={<Download />} label="Download" />
+        <Tab icon={<Home />} label="Home" sx={{ minWidth: 100, px: 2 }} />
+        <Tab icon={<Map />} label="Map" sx={{ minWidth: 100, px: 2 }} />
+        <Tab icon={<BarChart />} label="Stats" sx={{ minWidth: 100, px: 2 }} />
+        <Tab icon={<History />} label="Sensor History" sx={{ minWidth: 100, px: 2 }} />
+        <Tab icon={<Warning />} label="Accident Log" sx={{ minWidth: 100, px: 2 }} />
+        <Tab icon={<Download />} label="Download" sx={{ minWidth: 100, px: 2 }} />
       </Tabs>
       <Outlet />
     </Box>
