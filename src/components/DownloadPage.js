@@ -20,7 +20,6 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import WarningIcon from '@mui/icons-material/Warning';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { motion } from 'framer-motion';
-import api from '../api';
 
 export default function DownloadPage() {
   const [sensorData, setSensorData] = useState([]);
@@ -34,35 +33,59 @@ export default function DownloadPage() {
   
   // Load all data needed for evidence package
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch sensor data
-        const sensorRes = await fetch('https://safedrive-backend-4h5k.onrender.com/api/download/sensor');
-        if (!sensorRes.ok) throw new Error(`Failed to fetch sensor data: ${sensorRes.status}`);
-        const sensorResult = await sensorRes.json();
-        setSensorData(sensorResult.data || []);
-
-        // Fetch accidents data
-        const accidentRes = await fetch('https://safedrive-backend-4h5k.onrender.com/api/accidents');
-        if (!accidentRes.ok) throw new Error(`Failed to fetch accident data: ${accidentRes.status}`);
-        const accidentResult = await accidentRes.json();
-        setAccidentData(accidentResult || []);
-
-        // Fetch stats data
-        const statsRes = await fetch('https://safedrive-backend-4h5k.onrender.com/api/stats');
-        if (!statsRes.ok) throw new Error(`Failed to fetch stats data: ${statsRes.status}`);
-        const statsResult = await statsRes.json();
-        setStats(statsResult);
-
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setError(error.message);
-        setLoading(false);
+    setLoading(true);
+    
+    // Load saved data from localStorage
+    try {
+      const savedDataString = localStorage.getItem('safedrive_saved_data');
+      if (savedDataString) {
+        const parsed = JSON.parse(savedDataString);
+        setSavedData(parsed);
       }
-    };
-
-    fetchData();
+    } catch (err) {
+      console.error('Error loading saved data:', err);
+    }
+    
+    // Fetch sensor data
+    const fetchSensorData = fetch('/api/sensor/all')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch sensor data');
+        return res.json();
+      })
+      .then(data => setSensorData(data))
+      .catch(err => {
+        console.error('Error fetching sensor data:', err);
+        setError(err.message);
+      });
+    
+    // Fetch accident data
+    const fetchAccidentData = fetch('/api/map')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch accident data');
+        return res.json();
+      })
+      .then(data => setAccidentData(data))
+      .catch(err => {
+        console.error('Error fetching accident data:', err);
+        setError(err.message);
+      });
+    
+    // Fetch stats data
+    const fetchStatsData = fetch('/api/stats')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch stats data');
+        return res.json();
+      })
+      .then(data => setStats(data))
+      .catch(err => {
+        console.error('Error fetching stats data:', err);
+        setError(err.message);
+      });
+    
+    // Wait for all fetches to complete
+    Promise.all([fetchSensorData, fetchAccidentData, fetchStatsData])
+      .then(() => setLoading(false))
+      .catch(() => setLoading(false));
   }, []);
   
   // Function to download all evidence data as JSON
