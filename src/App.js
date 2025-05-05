@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import DashboardHome from './components/DashboardHome';
 import SensorHistory from './components/SensorHistory';
 import AccidentLog from './components/AccidentLog';
@@ -8,6 +8,7 @@ import StatsPage from './components/StatsPage';
 import DownloadPage from './components/DownloadPage';
 import StatusBar from './components/StatusBar';
 import ErrorBoundary from './components/ErrorBoundary';
+import DashboardLayout from './components/DashboardLayout';
 import api from './api';
 import './App.css';
 
@@ -37,14 +38,7 @@ function App() {
       <div className="app-container" style={{ paddingBottom: '64px' }}>
         <ErrorBoundary>
           <StatusBar sensorData={sensorData} error={error} />
-          <nav className="navbar">
-            <Link to="/">Home</Link>
-            <Link to="/history">Sensor History</Link>
-            <Link to="/accidents">Accident Log</Link>
-            <Link to="/map">Map</Link>
-            <Link to="/stats">Stats</Link>
-            <Link to="/download">Download</Link>
-          </nav>
+          <DashboardLayout />
           <div className="main-content">
             <Routes>
               <Route path="/" element={<DashboardHome />} />
