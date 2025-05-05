@@ -37,19 +37,19 @@ export default function DownloadPage() {
     const fetchData = async () => {
       try {
         // Fetch sensor data
-        const sensorRes = await fetch('http://localhost:4000/api/download/sensor');
+        const sensorRes = await fetch('https://safedrive-backend-4h5k.onrender.com/api/download/sensor');
         if (!sensorRes.ok) throw new Error(`Failed to fetch sensor data: ${sensorRes.status}`);
         const sensorResult = await sensorRes.json();
         setSensorData(sensorResult.data || []);
 
         // Fetch accidents data
-        const accidentRes = await fetch('http://localhost:4000/api/accidents');
+        const accidentRes = await fetch('https://safedrive-backend-4h5k.onrender.com/api/accidents');
         if (!accidentRes.ok) throw new Error(`Failed to fetch accident data: ${accidentRes.status}`);
         const accidentResult = await accidentRes.json();
         setAccidentData(accidentResult || []);
 
         // Fetch stats data
-        const statsRes = await fetch('http://localhost:4000/api/stats');
+        const statsRes = await fetch('https://safedrive-backend-4h5k.onrender.com/api/stats');
         if (!statsRes.ok) throw new Error(`Failed to fetch stats data: ${statsRes.status}`);
         const statsResult = await statsRes.json();
         setStats(statsResult);
