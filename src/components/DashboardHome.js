@@ -4,7 +4,6 @@ import LiveSensorCard from './LiveSensorCard';
 import StatsCard from './StatsCard';
 import DownloadReportButton from './DownloadReportButton';
 import HeartRateCard from './HeartRateCard';
-import CarTracker from './CarTracker';
 import AccidentImpactTable from './AccidentImpactTable'; // Import the new component
 import ConnectionStatusButton from './ConnectionStatusButton'; // Import the new component
 import RealTimeSensor from './RealTimeSensor';
@@ -119,7 +118,7 @@ export default function DashboardHome() {
         </Box>
         {/* Main sensor widgets row with LiveSensorCard between CarTracker and HeartPulse */}
         <Grid container spacing={5} justifyContent="center" alignItems="stretch" sx={{maxWidth: 1400, mb: 3, zIndex:2}}>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={8}>
             <AnimatedStat delay={300}>
               <Card sx={{
                 minHeight: 320,
@@ -140,32 +139,7 @@ export default function DashboardHome() {
                 m: 'auto',
                 p: 3,
               }}>
-                <CarTracker />
-              </Card>
-            </AnimatedStat>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <AnimatedStat delay={350}>
-              <Card sx={{
-                minHeight: 200,
-                minWidth: 200,
-                maxWidth: 320,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 5,
-                boxShadow: 10,
-                background: 'linear-gradient(135deg,#232526 0%,#2c5364 100%)',
-                transition: 'transform 0.4s cubic-bezier(.25,1.25,.5,1.1), box-shadow 0.4s',
-                ':hover': {
-                  transform: 'scale(1.09) rotate(-2deg)',
-                  boxShadow: '0 8px 24px #0f2027cc',
-                  background: 'linear-gradient(135deg,#2c5364 0%,#232526 100%)',
-                },
-                m: 'auto',
-                p: 2,
-              }}>
+              
                 <LiveSensorCard />
               </Card>
             </AnimatedStat>
