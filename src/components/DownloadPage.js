@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, 
   Typography, 
@@ -21,6 +21,34 @@ import WarningIcon from '@mui/icons-material/Warning';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { motion } from 'framer-motion';
 
+// API Configuration with correct endpoints
+const API_CONFIG = {
+  BASE_URL: process.env.REACT_APP_API_URL || 'https://safedrive-backend-4h5k.onrender.com',
+  ENDPOINTS: {
+    SENSOR: '/api/sensor/all',
+    ACCIDENTS: '/api/accidents',
+    STATS: '/api/stats',
+    HEALTH: '/health'
+  },
+  TIMEOUT: 10000, // 10 seconds
+  RETRIES: 2 // Number of retry attempts
+};
+
+// Mock data for fallback
+const MOCK_DATA = {
+  sensor: { data: [
+    { id: 1, timestamp: new Date().toISOString(), value: 25.4, unit: 'km/h' },
+    { id: 2, timestamp: new Date().toISOString(), value: 0.78, unit: 'g' }
+  ] },
+  accidents: [
+    { id: 1, timestamp: new Date().toISOString(), severity: 'moderate', location: '40.7128,-74.0060' }
+  ],
+  stats: {
+    totalReadings: 42,
+    lastUpdated: new Date().toISOString()
+  }
+};
+
 export default function DownloadPage() {
   const [sensorData, setSensorData] = useState([]);
   const [accidentData, setAccidentData] = useState([]);
@@ -29,158 +57,249 @@ export default function DownloadPage() {
   const [error, setError] = useState(null);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [savedData, setSavedData] = useState([]);
-  
-  // Load all data needed for evidence package
-  useEffect(() => {
-    setLoading(true);
-    
-    // Load saved data from localStorage
-    try {
-      const savedDataString = localStorage.getItem('safedrive_saved_data');
-      if (savedDataString) {
-        const parsed = JSON.parse(savedDataString);
-        setSavedData(parsed);
-      }
-    } catch (err) {
-      console.error('Error loading saved data:', err);
-    }
-    
-    // Fetch sensor data
-    const fetchSensorData = fetch('/api/sensor/all')
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch sensor data');
-        return res.json();
-      })
-      .then(data => setSensorData(data))
-      .catch(err => {
-        console.error('Error fetching sensor data:', err);
-        setError(err.message);
-      });
-    
-    // Fetch accident data
-    const fetchAccidentData = fetch('/api/map')
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch accident data');
-        return res.json();
-      })
-      .then(data => setAccidentData(data))
-      .catch(err => {
-        console.error('Error fetching accident data:', err);
-        setError(err.message);
-      });
-    
-    // Fetch stats data
-    const fetchStatsData = fetch('/api/stats')
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch stats data');
-        return res.json();
-      })
-      .then(data => setStats(data))
-      .catch(err => {
-        console.error('Error fetching stats data:', err);
-        setError(err.message);
-      });
-    
-    // Wait for all fetches to complete
-    Promise.all([fetchSensorData, fetchAccidentData, fetchStatsData])
-      .then(() => setLoading(false))
-      .catch(() => setLoading(false));
+  const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+  const [usingMockData, setUsingMockData] = useState(false);
+
+  // Show notification
+  const showNotification = useCallback((message, severity = 'success') => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
   }, []);
-  
-  // Function to download all evidence data as JSON
-  const downloadAllData = () => {
+
+  // Enhanced fetch with retries and timeout
+  const fetchWithRetry = useCallback(async (url, options = {}, retries = API_CONFIG.RETRIES) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(`Endpoint not found (404): ${url}`);
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (retries > 0) {
+        console.log(`Retrying ${url}... (${retries} attempts left)`);
+        return fetchWithRetry(url, options, retries - 1);
+      }
+      throw error;
+    }
+  }, []);
+
+  // Check API health
+  const checkApiHealth = useCallback(async () => {
+    try {
+      await fetchWithRetry(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.HEALTH}`);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [fetchWithRetry]);
+
+  // Load all data with error handling
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const isApiHealthy = await checkApiHealth();
+        if (!isApiHealthy) {
+          setUsingMockData(true);
+          showNotification('API unavailable. Using demo data.', 'warning');
+          setSensorData(MOCK_DATA.sensor.data);
+          setAccidentData(MOCK_DATA.accidents);
+          setStats(MOCK_DATA.stats);
+          setLoading(false);
+          return;
+        }
+
+        const [sensorRes, accidentRes, statsRes] = await Promise.allSettled([
+          fetchWithRetry(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.SENSOR}`),
+          fetchWithRetry(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ACCIDENTS}`),
+          fetchWithRetry(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.STATS}`)
+        ]);
+
+        // Process each response
+        const processResponse = (response, setData, defaultData) => {
+          if (response.status === 'fulfilled') {
+            setData(response.value?.data || response.value || defaultData);
+            return true;
+          } else {
+            console.error('Fetch error:', response.reason);
+            setData(defaultData);
+            return false;
+          }
+        };
+
+        const results = [
+          processResponse(sensorRes, setSensorData, []),
+          processResponse(accidentRes, setAccidentData, []),
+          processResponse(statsRes, setStats, null)
+        ];
+
+        if (!results.some(Boolean)) {
+          throw new Error('All API requests failed');
+        }
+
+      } catch (error) {
+        console.error('Data loading error:', error);
+        setError(error.message);
+        showNotification('Some data failed to load', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [checkApiHealth, fetchWithRetry, showNotification]);
+
+  // Download file utility
+  const downloadFile = useCallback((content, filename, type = 'application/json') => {
+    try {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      return true;
+    } catch (error) {
+      console.error('Download failed:', error);
+      showNotification('Download failed. Please try again.', 'error');
+      return false;
+    }
+  }, [showNotification]);
+
+  // Download all data as JSON
+  const downloadAllData = useCallback(() => {
     const evidencePackage = {
       timestamp: new Date().toISOString(),
-      device_info: {
-        device_id: 'SafeDrive_Pro_001',
-        firmware_version: '1.0.0',
-        last_calibration: new Date().toISOString()
+      metadata: {
+        source: usingMockData ? 'demo-data' : 'api-data',
+        generatedAt: new Date().toISOString()
       },
       sensor_data: sensorData,
       accident_data: accidentData,
-      saved_data: savedData,
       statistics: stats
     };
     
-    // Create and download the file
     const dataStr = JSON.stringify(evidencePackage, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
+    const filename = `safedrive_evidence_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
     
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `safedrive_evidence_${new Date().toISOString().replace(/:/g, '-')}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    if (downloadFile(dataStr, filename)) {
+      showNotification('Download complete!', 'success');
+    }
+  }, [sensorData, accidentData, stats, downloadFile, showNotification, usingMockData]);
+
+  // Convert data to CSV
+  const convertToCSV = useCallback((data) => {
+    if (!data || !data.length) return null;
     
-    // Show success message
-    setSnackbarMessage('Evidence package downloaded successfully!');
-    setSnackbarOpen(true);
-  };
-  
-  // Function to download data as CSV
-  const downloadAsCSV = (data, filename) => {
-    if (!data || data.length === 0) {
-      setSnackbarMessage('No data available to download');
-      setSnackbarOpen(true);
+    const headers = Object.keys(data[0]);
+    const escapeCsv = (value) => 
+      typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value;
+    
+    return [
+      headers.join(','),
+      ...data.map(row => 
+        headers.map(field => 
+          escapeCsv(row[field] ?? '')
+        ).join(',')
+      )
+    ].join('\n');
+  }, []);
+
+  // Download data as CSV
+  const downloadAsCSV = useCallback((data, filename) => {
+    const csvContent = convertToCSV(data);
+    if (!csvContent) {
+      showNotification('No data available to download', 'warning');
       return;
     }
     
-    // Get headers from first data object
-    const headers = Object.keys(data[0]);
-    
-    // Create CSV content
-    let csvContent = headers.join(',') + '\n';
-    
-    // Add data rows
-    data.forEach(item => {
-      const row = headers.map(header => {
-        // Handle special cases (null, undefined, objects)
-        let cell = item[header];
-        if (cell === null || cell === undefined) {
-          return '';
-        } else if (typeof cell === 'object') {
-          return JSON.stringify(cell).replace(/"/g, '""');
-        } else {
-          return String(cell).replace(/"/g, '""');
-        }
-      }).join(',');
-      csvContent += row + '\n';
-    });
-    
-    // Create and download the file
-    const dataBlob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(dataBlob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Show success message
-    setSnackbarMessage(`${filename} downloaded successfully!`);
-    setSnackbarOpen(true);
-  };
-  
-  // Function to create a PDF report (simplified version)
-  const downloadPDFReport = () => {
-    setSnackbarMessage('PDF report generation is not implemented in this demo version');
-    setSnackbarOpen(true);
-  };
-  
+    if (downloadFile(csvContent, filename, 'text/csv')) {
+      showNotification(`${filename} downloaded`, 'success');
+    }
+  }, [convertToCSV, downloadFile, showNotification]);
+
+  // Generate PDF report
+  const downloadPDFReport = useCallback(async () => {
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF();
+      
+      // Report header
+      doc.setFontSize(18);
+      doc.text('SafeDrive Pro Report', 105, 20, { align: 'center' });
+      doc.setFontSize(12);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+      doc.text(`Data Source: ${usingMockData ? 'Demo Data' : 'Live API'}`, 14, 40);
+      
+      // Data summary
+      doc.setFontSize(14);
+      doc.text('Data Summary', 14, 50);
+      doc.setFontSize(12);
+      doc.text(`• Sensor Readings: ${sensorData.length}`, 20, 60);
+      doc.text(`• Accident Events: ${accidentData.length}`, 20, 70);
+      
+      // Save PDF
+      const filename = `safedrive_report_${new Date().toISOString().slice(0, 10)}.pdf`;
+      doc.save(filename);
+      
+      showNotification('PDF report generated', 'success');
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+      showNotification('Failed to generate PDF', 'error');
+    }
+  }, [sensorData, accidentData, showNotification, usingMockData]);
+
+  // Loading state
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
         <CircularProgress size={60} />
-        <Typography variant="h6" sx={{ ml: 2 }}>Loading evidence data...</Typography>
+        <Typography variant="h6" sx={{ ml: 2 }}>
+          {usingMockData ? 'Loading demo data...' : 'Connecting to API...'}
+        </Typography>
       </Box>
     );
   }
-  
+
+  // Error state (only if no data at all)
+  if (error && !sensorData.length && !accidentData.length && !stats) {
+    return (
+      <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          <Typography variant="body1">Failed to load data: {error}</Typography>
+          <Button 
+            variant="outlined" 
+            sx={{ mt: 2 }}
+            onClick={() => window.location.reload()}
+          >
+            Retry
+          </Button>
+        </Alert>
+      </Box>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -192,12 +311,21 @@ export default function DownloadPage() {
           Download Evidence Data
         </Typography>
         
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <Typography variant="body1">
-            This page allows you to download all SafeDrive Pro data for evidence purposes. 
-            The downloaded files can be used for insurance claims, legal proceedings, or accident investigations.
-          </Typography>
-        </Alert>
+        {usingMockData && (
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            <Typography variant="body1">
+              Note: Currently showing demo data. Real API is unavailable.
+            </Typography>
+          </Alert>
+        )}
+
+        {error && (
+          <Alert severity="info" sx={{ mb: 3 }}>
+            <Typography variant="body1">
+              Partial data loaded. {error}
+            </Typography>
+          </Alert>
+        )}
         
         {/* Main download card */}
         <Card sx={{ mb: 4, borderRadius: 2, boxShadow: 3 }}>
@@ -209,12 +337,6 @@ export default function DownloadPage() {
               </Typography>
             </Box>
             
-            <Typography variant="body1" sx={{ mb: 3 }}>
-              Download a comprehensive package containing all sensor data, accident events, 
-              and system statistics in a single file. This package includes all necessary 
-              information for accident investigation and insurance claims.
-            </Typography>
-            
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               <Typography variant="subtitle2">
                 Package Contents:
@@ -224,51 +346,35 @@ export default function DownloadPage() {
                 <ListItem>
                   <ListItemText 
                     primary="Sensor Data" 
-                    secondary={`${sensorData.length || 0} records available`} 
+                    secondary={`${sensorData.length} records`} 
                   />
                   <Chip 
-                    label={sensorData.length > 0 ? "Available" : "No Data"} 
-                    color={sensorData.length > 0 ? "success" : "error"} 
-                    size="small" 
-                    icon={sensorData.length > 0 ? <CheckCircleIcon /> : <WarningIcon />}
+                    label={sensorData.length ? "Available" : "No Data"} 
+                    color={sensorData.length ? "success" : "error"} 
+                    icon={sensorData.length ? <CheckCircleIcon /> : <WarningIcon />}
                   />
                 </ListItem>
                 
                 <ListItem>
                   <ListItemText 
                     primary="Accident Events" 
-                    secondary={`${accidentData.length || 0} records available`} 
+                    secondary={`${accidentData.length} records`} 
                   />
                   <Chip 
-                    label={accidentData.length > 0 ? "Available" : "No Data"} 
-                    color={accidentData.length > 0 ? "success" : "error"} 
-                    size="small" 
-                    icon={accidentData.length > 0 ? <CheckCircleIcon /> : <WarningIcon />}
-                  />
-                </ListItem>
-                
-                <ListItem>
-                  <ListItemText 
-                    primary="Saved Engine Stop Data" 
-                    secondary={`${savedData.length || 0} records available`} 
-                  />
-                  <Chip 
-                    label={savedData.length > 0 ? "Available" : "No Data"} 
-                    color={savedData.length > 0 ? "success" : "error"} 
-                    size="small" 
-                    icon={savedData.length > 0 ? <CheckCircleIcon /> : <WarningIcon />}
+                    label={accidentData.length ? "Available" : "No Data"} 
+                    color={accidentData.length ? "success" : "error"} 
+                    icon={accidentData.length ? <CheckCircleIcon /> : <WarningIcon />}
                   />
                 </ListItem>
                 
                 <ListItem>
                   <ListItemText 
                     primary="System Statistics" 
-                    secondary="Summary statistics and metadata" 
+                    secondary={stats ? "Available" : "Not available"} 
                   />
                   <Chip 
                     label={stats ? "Available" : "No Data"} 
                     color={stats ? "success" : "error"} 
-                    size="small" 
                     icon={stats ? <CheckCircleIcon /> : <WarningIcon />}
                   />
                 </ListItem>
@@ -285,10 +391,10 @@ export default function DownloadPage() {
                   size="large" 
                   startIcon={<DownloadIcon />}
                   onClick={downloadAllData}
-                  disabled={loading || (!sensorData.length && !accidentData.length && !savedData.length && !stats)}
+                  disabled={!sensorData.length && !accidentData.length && !stats}
                   sx={{ px: 4, py: 1.5, borderRadius: 2 }}
                 >
-                  Download Complete Evidence Package
+                  Download Package
                 </Button>
               </motion.div>
             </Box>
@@ -301,125 +407,67 @@ export default function DownloadPage() {
         </Typography>
         
         <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 2 }}>
-              <CardContent>
-                <Typography variant="h6" component="div" gutterBottom>
-                  Sensor Data (CSV)
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Download raw sensor readings in CSV format for analysis in Excel or other tools.
-                </Typography>
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                  <Button 
-                    variant="outlined" 
-                    startIcon={<FileDownloadIcon />}
-                    onClick={() => downloadAsCSV(sensorData, 'safedrive_sensor_data.csv')}
-                    disabled={!sensorData.length}
-                    fullWidth
-                  >
-                    Download Sensor Data
-                  </Button>
-                </motion.div>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 2 }}>
-              <CardContent>
-                <Typography variant="h6" component="div" gutterBottom>
-                  Accident Events (CSV)
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Download accident event data including location, time, and impact severity.
-                </Typography>
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                  <Button 
-                    variant="outlined" 
-                    startIcon={<FileDownloadIcon />}
-                    onClick={() => downloadAsCSV(accidentData, 'safedrive_accident_data.csv')}
-                    disabled={!accidentData.length}
-                    fullWidth
-                  >
-                    Download Accident Data
-                  </Button>
-                </motion.div>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 2 }}>
-              <CardContent>
-                <Typography variant="h6" component="div" gutterBottom>
-                  Engine Stop Data (CSV)
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Download data captured at engine stop events, including all sensor values.
-                </Typography>
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                  <Button 
-                    variant="outlined" 
-                    startIcon={<FileDownloadIcon />}
-                    onClick={() => downloadAsCSV(savedData, 'safedrive_engine_stop_data.csv')}
-                    disabled={!savedData.length}
-                    fullWidth
-                  >
-                    Download Engine Stop Data
-                  </Button>
-                </motion.div>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 2 }}>
-              <CardContent>
-                <Typography variant="h6" component="div" gutterBottom>
-                  PDF Report
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Generate a comprehensive PDF report with visualizations and analysis.
-                </Typography>
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                  <Button 
-                    variant="outlined" 
-                    startIcon={<FileDownloadIcon />}
-                    onClick={downloadPDFReport}
-                    fullWidth
-                  >
-                    Generate PDF Report
-                  </Button>
-                </motion.div>
-              </CardContent>
-            </Card>
-          </Grid>
+          {[
+            { 
+              title: "Sensor Data (CSV)", 
+              description: "Raw sensor readings for analysis",
+              data: sensorData,
+              filename: "sensor_data.csv",
+              disabled: !sensorData.length
+            },
+            { 
+              title: "Accident Events (CSV)", 
+              description: "Accident event details",
+              data: accidentData,
+              filename: "accidents.csv",
+              disabled: !accidentData.length
+            },
+            { 
+              title: "PDF Report", 
+              description: "Formatted report with analysis",
+              action: downloadPDFReport,
+              disabled: false
+            }
+          ].map((item, index) => (
+            <Grid item xs={12} md={6} key={index}>
+              <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 2 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    {item.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {item.description}
+                  </Typography>
+                  <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                    <Button 
+                      variant="outlined" 
+                      startIcon={<FileDownloadIcon />}
+                      onClick={item.action || (() => downloadAsCSV(item.data, item.filename))}
+                      disabled={item.disabled}
+                      fullWidth
+                    >
+                      Download {item.title.split(' ')[0]}
+                    </Button>
+                  </motion.div>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
         </Grid>
-        
-        {/* Legal information */}
-        <Card sx={{ mt: 4, borderRadius: 2, bgcolor: '#f5f5f5' }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Legal Information
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              The data provided in these downloads is admissible as evidence in legal proceedings and insurance claims. 
-              All data is timestamped and includes device identification information to ensure authenticity. 
-              SafeDrive Pro maintains the integrity of all sensor data and cannot be tampered with.
-            </Typography>
-          </CardContent>
-        </Card>
       </Box>
       
-      {/* Notification Snackbar */}
+      {/* Notification system */}
       <Snackbar 
         open={snackbarOpen} 
-        autoHideDuration={4000} 
+        autoHideDuration={6000} 
         onClose={() => setSnackbarOpen(false)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={() => setSnackbarOpen(false)} severity="success" sx={{ width: '100%' }}>
+        <Alert 
+          onClose={() => setSnackbarOpen(false)} 
+          severity={snackbarSeverity}
+          sx={{ width: '100%' }}
+        >
           {snackbarMessage}
         </Alert>
       </Snackbar>
