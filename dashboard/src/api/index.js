@@ -4,10 +4,26 @@ async function fetchWithTimeout(url, options = {}, timeout = 5000, signal) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-  // If an external signal is provided, listen for its abort event
-  const abortHandler = () => controller.abort();
+  // Clean up both timeout and signal listener
+  const cleanup = () => {
+    clearTimeout(timeoutId);
+    if (signal) {
+      signal.removeEventListener('abort', abortHandler);
+    }
+  };
+
+  // Unified abort handler
+  const abortHandler = () => {
+    cleanup();
+    controller.abort();
+  };
+
   if (signal) {
     signal.addEventListener('abort', abortHandler);
+    if (signal.aborted) {
+      cleanup();
+      throw new DOMException('Aborted', 'AbortError');
+    }
   }
 
   try {
@@ -19,52 +35,44 @@ async function fetchWithTimeout(url, options = {}, timeout = 5000, signal) {
       },
       signal: controller.signal
     });
-    return response;
-  } finally {
-    clearTimeout(timeoutId);
-    if (signal) {
-      signal.removeEventListener('abort', abortHandler);
+
+    if (!response.ok) {
+      const error = await parseErrorResponse(response);
+      throw error;
     }
-  }
-}
 
-async function handleResponse(endpoint, response) {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.message || `API request failed with status ${response.status}`
-    );
-  }
-  return response.json();
-}
-
-async function get(endpoint, signal) {
-  try {
-    const response = await fetchWithTimeout(
-      `${API_BASE_URL}${endpoint}`,
-      {},
-      5000,
-      signal
-    );
-    return await handleResponse(endpoint, response);
+    return response;
   } catch (err) {
-    console.error(`API Error (${endpoint}):`, err);
+    cleanup();
     throw err;
   }
 }
 
-async function post(endpoint, data, signal) {
+async function parseErrorResponse(response) {
+  try {
+    const errorData = await response.json();
+    return new Error(
+      errorData.message || 
+      `Request failed with status ${response.status}`
+    );
+  } catch {
+    return new Error(`Request failed with status ${response.status}`);
+  }
+}
+
+async function handleApiCall(endpoint, method = 'GET', data = null, signal) {
   try {
     const response = await fetchWithTimeout(
       `${API_BASE_URL}${endpoint}`,
       {
-        method: 'POST',
-        body: JSON.stringify(data),
+        method,
+        body: data ? JSON.stringify(data) : undefined,
       },
       5000,
       signal
     );
-    return await handleResponse(endpoint, response);
+
+    return await response.json();
   } catch (err) {
     console.error(`API Error (${endpoint}):`, err);
     throw err;
@@ -72,13 +80,13 @@ async function post(endpoint, data, signal) {
 }
 
 const api = {
-  getLatestSensorData: (signal) => get('/api/sensor', signal),
-  getHealth: (signal) => get('/api/health', signal),
-  getStats: (signal) => get('/api/stats', signal),
-  getAccidents: (signal) => get('/api/accidents', signal),
-  getCarPosition: (signal) => get('/api/sensor', signal),
-  getSensorHistory: (signal) => get('/api/sensor/history', signal),
-  postSensorData: (data, signal) => post('/api/sensor', data, signal)
+  getLatestSensorData: (signal) => handleApiCall('/api/sensor', 'GET', null, signal),
+  getHealth: (signal) => handleApiCall('/api/health', 'GET', null, signal),
+  getStats: (signal) => handleApiCall('/api/stats', 'GET', null, signal),
+  getAccidents: (signal) => handleApiCall('/api/accidents', 'GET', null, signal),
+  getCarPosition: (signal) => handleApiCall('/api/sensor', 'GET', null, signal),
+  getSensorHistory: (signal) => handleApiCall('/api/sensor/history', 'GET', null, signal),
+  postSensorData: (data, signal) => handleApiCall('/api/sensor', 'POST', data, signal)
 };
 
 export default api;
