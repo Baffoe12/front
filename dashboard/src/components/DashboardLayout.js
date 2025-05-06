@@ -2,8 +2,6 @@ import React from 'react';
 import { Tabs, Tab, Box } from '@mui/material';
 import { Home, Map, BarChart, History, Download, Warning } from '@mui/icons-material';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import carOnRoad from '../../public/car-on-road.svg';
-
 export default function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
