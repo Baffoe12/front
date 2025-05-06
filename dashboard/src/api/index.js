@@ -43,6 +43,11 @@ async function fetchWithTimeout(url, options = {}, timeout = 5000, signal) {
     return response;
   } catch (err) {
     cleanup();
+    // Differentiate between abort errors and other errors
+    if (err.name === 'AbortError') {
+      console.log('Request was aborted');
+      throw err; // Re-throw but don't log as error
+    }
     throw err;
   }
 }
@@ -60,7 +65,9 @@ async function handleApiRequest(endpoint, method = 'GET', data = null, signal) {
     );
     return await response.json();
   } catch (err) {
-    console.error(`API Error (${endpoint}):`, err);
+    if (err.name !== 'AbortError') {
+      console.error(`API Error (${endpoint}):`, err);
+    }
     throw err;
   }
 }
@@ -70,7 +77,7 @@ const api = {
   getHealth: (signal) => handleApiRequest('/api/health', 'GET', null, signal),
   getStats: (signal) => handleApiRequest('/api/stats', 'GET', null, signal),
   getAccidents: (signal) => handleApiRequest('/api/accidents', 'GET', null, signal),
-  getCarPosition: (signal) => handleApiRequest('/api/sensor', 'GET', null, signal),
+  getCarPosition: (signal) => handleApiRequest('/api/position', 'GET', null, signal), // Changed endpoint
   getSensorHistory: (signal) => handleApiRequest('/api/sensor/history', 'GET', null, signal),
   postSensorData: (data, signal) => handleApiRequest('/api/sensor', 'POST', data, signal)
 };
