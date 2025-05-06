@@ -28,7 +28,7 @@ const API_CONFIG = {
     SENSOR: '/api/sensor/all',
     ACCIDENTS: '/api/accidents',
     STATS: '/api/stats',
-    HEALTH: '/health'
+    HEALTH: '/api/health'
   },
   TIMEOUT: 10000, // 10 seconds
   RETRIES: 2 // Number of retry attempts
