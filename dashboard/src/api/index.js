@@ -6,15 +6,23 @@ async function fetchWithTimeout(url, options = {}, timeout = 5000, signal) {
   const id = setTimeout(() => controller.abort(), timeout);
 
   // If an external signal is provided, listen for its abort event to abort this controller
+  let abortHandler;
   if (signal) {
-    signal.addEventListener('abort', () => {
+    abortHandler = () => {
       controller.abort();
-    });
+    };
+    signal.addEventListener('abort', abortHandler);
   }
 
-  const response = await fetch(url, { ...options, signal: controller.signal });
-  clearTimeout(id);
-  return response;
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    return response;
+  } finally {
+    clearTimeout(id);
+    if (signal && abortHandler) {
+      signal.removeEventListener('abort', abortHandler);
+    }
+  }
 }
 
 async function get(endpoint, signal) {
