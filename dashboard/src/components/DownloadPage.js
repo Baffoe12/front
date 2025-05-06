@@ -25,7 +25,7 @@ import { motion } from 'framer-motion';
 const API_CONFIG = {
   BASE_URL: process.env.REACT_APP_API_URL || 'https://safedrive-backend-4h5k.onrender.com',
   ENDPOINTS: {
-    SENSOR: '/api/sensor/all',
+    SENSOR: '/api/sensor',
     ACCIDENTS: '/api/accidents',
     STATS: '/api/stats',
     HEALTH: '/api/health'
