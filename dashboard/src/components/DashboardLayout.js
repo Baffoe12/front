@@ -34,7 +34,7 @@ export default function DashboardLayout() {
 
   return (
     <Box sx={{ width: '100%', borderBottom: 1, borderColor: 'divider', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#1976d2', px: 2 }}>
-      <Box component="img" src={carOnRoad} alt="Logo" sx={{ height: 40, width: 40 }} />
+      <Box component="img" src="/car-on-road.svg" alt="Logo" sx={{ height: 40, width: 40 }} />
       <Tabs
         value={currentTab}
         onChange={handleChange}
