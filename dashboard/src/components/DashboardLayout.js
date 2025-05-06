@@ -2,6 +2,7 @@ import React from 'react';
 import { Tabs, Tab, Box } from '@mui/material';
 import { Home, Map, BarChart, History, Download, Warning } from '@mui/icons-material';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import carOnRoad from '../../public/car-on-road.svg';
 
 export default function DashboardLayout() {
   const location = useLocation();
@@ -35,7 +36,7 @@ export default function DashboardLayout() {
 
   return (
     <Box sx={{ width: '100%', borderBottom: 1, borderColor: 'divider', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#1976d2', px: 2 }}>
-      <Box component="img" src="/car-on-road.svg" alt="Logo" sx={{ height: 40, width: 40 }} />
+      <Box component="img" src={carOnRoad} alt="Logo" sx={{ height: 40, width: 40 }} />
       <Tabs
         value={currentTab}
         onChange={handleChange}
