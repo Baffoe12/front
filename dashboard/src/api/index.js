@@ -1,6 +1,5 @@
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://safedrive-backend-4h5k.onrender.com';
 
-
 async function fetchWithTimeout(url, options = {}, timeout = 5000, signal) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
