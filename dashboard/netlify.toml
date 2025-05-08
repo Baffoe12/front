@@ -1,0 +1,12 @@
+[build]
+  publish = "build"
+  command = "npm run build"
+
+[context.production.environment]
+  REACT_APP_API_URL = "https://your-backend-vercel-url/api"
+
+[context.deploy-preview.environment]
+  REACT_APP_API_URL = "https://your-backend-vercel-url/api"
+
+[context.branch-deploy.environment]
+  REACT_APP_API_URL = "https://your-backend-vercel-url/api"
